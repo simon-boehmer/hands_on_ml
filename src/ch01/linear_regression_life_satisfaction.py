@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
-from homl import plot_regression_fit
+from utils import plot_regression_fit
 
 
 def main() -> None:
@@ -25,7 +25,8 @@ def main() -> None:
     y = df["Life_satisfaction"].to_numpy()
 
     # Fit model
-    model = LinearRegression().fit(X, y)
+    model = LinearRegression()
+    model.fit(X, y)
 
     # Report model
     print(f"y = {model.coef_[0]:.6f} * x + {model.intercept_:.6f}")
