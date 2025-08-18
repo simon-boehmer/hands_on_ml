@@ -1,0 +1,55 @@
+# -------------------------
+# Python / Environment
+# -------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+.eggs/
+*.log
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Jupyter checkpoints (in case you add notebooks later)
+.ipynb_checkpoints/
+
+# VS Code / PyCharm / other IDEs
+.vscode/
+.idea/
+
+# Build / packaging
+build/
+dist/
+*.manifest
+*.spec
+
+# -------------------------
+# Project-specific
+# -------------------------
+# Data
+data/external/*
+data/processed/*
+!data/sample/*
+
+# Experiments / artifacts
+experiments/**/*
+!experiments/.gitkeep
+
+# Cache / ML artifacts
+mlruns/
+*.ckpt
+*.h5
+*.pth
+*.pt
+*.onnx
+
+# OS cruft
+.DS_Store
+Thumbs.db

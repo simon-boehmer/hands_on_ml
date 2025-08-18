@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hands-on-ml"
+version = "0.1.0"
+description = "Hands-On Machine Learning with Scikit-Learn, Keras & Tensorflow"
+requires-python = ">=3.9"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["homl", "ch01", "ch02"]
