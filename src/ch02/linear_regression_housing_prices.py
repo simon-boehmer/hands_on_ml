@@ -56,9 +56,14 @@ def main() -> None:
     plt.show()
 
     # Alternative splits
-    # train2, test2 = split_train_test_manual(housing)
-    # housing_with_id = housing.reset_index()  # index as stable ID
-    # train3, test3 = split_train_test_by_id(housing_with_id, 0.2, "index")
+    # train, test = split_train_test_manual(housing)
+
+    # Better stable ID: combine longitude and latitude
+    housing_with_id = housing.copy()
+    housing_with_id["id"] = (
+        housing_with_id["longitude"] * 1000 + housing_with_id["latitude"]
+    )
+    # train, test = split_train_test_by_id(housing_with_id, 0.2, "id")
 
     # Use sklearn split (default)
     train, test = split_train_test(housing)
