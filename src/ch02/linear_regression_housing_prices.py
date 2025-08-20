@@ -1,7 +1,13 @@
 from pathlib import Path
 import pandas as pd
+
+# import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib import pyplot as plt
+
+from utils import plot_scatter, plot_housing_map
 from sklearn.model_selection import train_test_split, StratifiedShuffleSplit
+from pandas.plotting import scatter_matrix
 from zlib import crc32
 
 # Resolve repo paths
@@ -88,6 +94,31 @@ def main() -> None:
     # Default: stratified split
     train, test = split_train_test_stratified(housing)
     print(f"strat train: {len(train)}, strat test: {len(test)}")
+
+    housing = train.copy()
+    housing["rooms_per_house"] = housing["total_rooms"] / housing["households"]
+    housing["bedrooms_ratio"] = housing["total_bedrooms"] / housing["total_rooms"]
+    housing["people_per_house"] = housing["population"] / housing["households"]
+
+    corr_matrix = housing.corr(numeric_only=True)
+    print(corr_matrix["median_house_value"].sort_values(ascending=False))
+
+    # attributes = [
+    #     "median_house_value",
+    #     "median_income",
+    #     "total_rooms",
+    #     "housing_median_age",
+    # ]
+    # scatter_matrix(housing[attributes], figsize=(20, 20))
+    # plt.show()
+
+    # plot_scatter(
+    #     housing["median_income"],
+    #     housing["median_house_value"],
+    #     x_label="Median Income",
+    #     y_label="Median House Value",
+    #     title="?",
+    # )
 
 
 if __name__ == "__main__":

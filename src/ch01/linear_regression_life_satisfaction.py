@@ -42,7 +42,7 @@ def main() -> None:
         y,
         X_line,
         y_pred,
-        x_label="GDP per capita (USD)",
+        ç="GDP per capita (USD)",
         y_label="Life satisfaction (0–10)",
         title="GDP vs Life Satisfaction",
         y_lim=(0, 10),
