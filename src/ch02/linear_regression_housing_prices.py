@@ -7,6 +7,7 @@ from matplotlib import pyplot as plt
 
 from utils import plot_scatter, plot_housing_map
 from sklearn.model_selection import train_test_split, StratifiedShuffleSplit
+from sklearn.impute import SimpleImputer
 from pandas.plotting import scatter_matrix
 from zlib import crc32
 
@@ -74,10 +75,10 @@ def main() -> None:
     # Load dataset
     housing = pd.read_csv(csv_path)
 
-    # Inspect dataset
-    print(housing.head())
-    print(housing.info())
-    print(housing.describe())
+    # Inspect dataset structure + stats
+    print(housing.head())  # first rows
+    print(housing.info())  # column info + dtypes + nulls
+    print(housing.describe())  # summary stats
 
     # Discretize median_income into categories for stratified sampling
     housing["income_cat"] = pd.cut(
@@ -91,18 +92,23 @@ def main() -> None:
     # housing_with_id["id"] = housing_with_id["longitude"] * 1000 + housing_with_id["latitude"]
     # train, test = split_train_test_by_id(housing_with_id, 0.2, "id")
 
-    # Default: stratified split
+    # Default: stratified split (preferred)
     train, test = split_train_test_stratified(housing)
     print(f"strat train: {len(train)}, strat test: {len(test)}")
 
+    # Copy train set for feature engineering
     housing = train.copy()
+
+    # Add engineered features
     housing["rooms_per_house"] = housing["total_rooms"] / housing["households"]
     housing["bedrooms_ratio"] = housing["total_bedrooms"] / housing["total_rooms"]
     housing["people_per_house"] = housing["population"] / housing["households"]
 
+    # Correlation matrix (numerical only)
     corr_matrix = housing.corr(numeric_only=True)
     print(corr_matrix["median_house_value"].sort_values(ascending=False))
 
+    # Visual exploration examples (commented out)
     # attributes = [
     #     "median_house_value",
     #     "median_income",
@@ -119,6 +125,35 @@ def main() -> None:
     #     y_label="Median House Value",
     #     title="?",
     # )
+
+    # Separate predictors and labels
+    housing = train.drop("median_house_value", axis=1)
+    housing_labels = train["median_house_value"].copy()
+
+    # Handling missing values (different options below)
+    # Option 1: drop rows with missing values
+    # housing.dropna(subset=["total_bedrooms"], inplace=True)
+    # Option 2: drop the whole column
+    # housing.drop("total_bedrooms", axis=1)
+    # Option 3: fill with median value
+    # total_bedrooms_median = housing["total_bedrooms"].median()
+    # housing["total_bedrooms"].fillna(total_bedrooms_median, inplace=True)
+
+    # Preferred: imputation with sklearn
+    imputer = SimpleImputer(strategy="median")
+
+    # Fit on numerical attributes only
+    housing_num = housing.select_dtypes(include=[np.number])
+    imputer.fit(housing_num)
+
+    print(imputer.statistics_)  # learned medians for each column
+
+    # Transform the dataset (replace missing values with medians)
+    X = imputer.transform(housing_num)
+
+    # Back to DataFrame with original index + column names
+    housing_tr = pd.DataFrame(X, columns=housing_num.columns, index=housing_num.index)
+    print(housing_tr.info())
 
 
 if __name__ == "__main__":
