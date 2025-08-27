@@ -8,8 +8,14 @@ import numpy as np
 import pandas as pd
 from pandas.plotting import scatter_matrix
 from sklearn.impute import SimpleImputer
+from sklearn.metrics.pairwise import rbf_kernel
 from sklearn.model_selection import StratifiedShuffleSplit, train_test_split
-from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
+from sklearn.preprocessing import (
+    MinMaxScaler,
+    OneHotEncoder,
+    OrdinalEncoder,
+    StandardScaler,
+)
 
 # Local
 from utils import plot_housing_map, plot_scatter
@@ -92,6 +98,20 @@ def encode_onehot(df: pd.DataFrame) -> OneHotEncoder:
     encoder = OneHotEncoder(sparse_output=True)  # keep sparse for efficiency
     encoder.fit(df)
     return encoder
+
+
+# Fit a MinMaxScaler on the DataFrame
+def scale_minmax(df: pd.DataFrame) -> MinMaxScaler:
+    scaler = MinMaxScaler(feature_range=(-1, 1))
+    scaler.fit(df)
+    return scaler
+
+
+# Fit a StandardScaler on the DataFrame
+def scale_std(df: pd.DataFrame) -> StandardScaler:
+    scaler = StandardScaler()
+    scaler.fit(df)
+    return scaler
 
 
 def main() -> None:
@@ -189,6 +209,22 @@ def main() -> None:
     housing_cat_onehot = onehot_encoder.transform(housing_cat)
     # print(housing_cat_onehot[:5])
     # print(housing_cat_onehot.toarray())  # toarray only for inspection
+
+    scaler = scale_std(housing_num)
+    housing_scaled = scaler.transform(housing_num)
+    print(housing_scaled)
+
+    # Transform a multimodal distributions using RBF (TEST)
+    age_similarity_35 = rbf_kernel(housing[["housing_median_age"]], [[15]], gamma=0.1)
+
+    # Scatter: age vs similarity
+    plt.figure(figsize=(8, 5))
+    plt.scatter(housing["housing_median_age"], age_similarity_35, alpha=0.5)
+    plt.xlabel("Housing Median Age")
+    plt.ylabel("Similarity to Age=35")
+    plt.title("RBF Similarity to Age=35")
+    plt.grid(True, linestyle=":")
+    plt.show()
 
 
 if __name__ == "__main__":
