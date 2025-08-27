@@ -1,15 +1,19 @@
+# Standard library
 from pathlib import Path
-import pandas as pd
-
-# import matplotlib.pyplot as plt
-import numpy as np
-from matplotlib import pyplot as plt
-
-from utils import plot_scatter, plot_housing_map
-from sklearn.model_selection import train_test_split, StratifiedShuffleSplit
-from sklearn.impute import SimpleImputer
-from pandas.plotting import scatter_matrix
 from zlib import crc32
+
+# Third-party
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from pandas.plotting import scatter_matrix
+from sklearn.impute import SimpleImputer
+from sklearn.model_selection import StratifiedShuffleSplit, train_test_split
+from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
+
+# Local
+from utils import plot_housing_map, plot_scatter
+
 
 # Resolve repo paths
 repo_root = Path(__file__).resolve().parents[2]
@@ -69,6 +73,25 @@ def split_train_test_stratified(
         split.drop(columns="income_cat", inplace=True)
 
     return strat_train, strat_test
+
+
+# Return a fitted imputer for numerical attributes
+def get_imputer(strategy: str = "median") -> SimpleImputer:
+    return SimpleImputer(strategy=strategy)
+
+
+# Fit ordinal encoder on categorical columns
+def encode_ordinal(df: pd.DataFrame) -> OrdinalEncoder:
+    encoder = OrdinalEncoder()
+    encoder.fit(df)
+    return encoder
+
+
+# Fit one-hot encoder on categorical columns
+def encode_onehot(df: pd.DataFrame) -> OneHotEncoder:
+    encoder = OneHotEncoder(sparse_output=True)  # keep sparse for efficiency
+    encoder.fit(df)
+    return encoder
 
 
 def main() -> None:
@@ -140,9 +163,7 @@ def main() -> None:
     # housing["total_bedrooms"].fillna(total_bedrooms_median, inplace=True)
 
     # Preferred: imputation with sklearn
-    imputer = SimpleImputer(strategy="median")
-
-    # Fit on numerical attributes only
+    imputer = get_imputer("median")
     housing_num = housing.select_dtypes(include=[np.number])
     imputer.fit(housing_num)
 
@@ -154,6 +175,20 @@ def main() -> None:
     # Back to DataFrame with original index + column names
     housing_tr = pd.DataFrame(X, columns=housing_num.columns, index=housing_num.index)
     print(housing_tr.info())
+
+    # Categorical attributes (non-numeric columns)
+    housing_cat = housing.select_dtypes(include=["object"])
+
+    # Ordinal encoding
+    ordinal_encoder = encode_ordinal(housing_cat)
+    housing_cat_encoded = ordinal_encoder.transform(housing_cat)
+    # print(ordinal_encoder.categories_)
+
+    # One-hot encoding
+    onehot_encoder = encode_onehot(housing_cat)
+    housing_cat_onehot = onehot_encoder.transform(housing_cat)
+    # print(housing_cat_onehot[:5])
+    # print(housing_cat_onehot.toarray())  # toarray only for inspection
 
 
 if __name__ == "__main__":
