@@ -7,13 +7,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from pandas.plotting import scatter_matrix
-from sklearn.base import TransformerMixin
 from sklearn.compose import TransformedTargetRegressor
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics.pairwise import rbf_kernel
 from sklearn.model_selection import StratifiedShuffleSplit, train_test_split
 from sklearn.preprocessing import (
+    FunctionTransformer,
     MinMaxScaler,
     OneHotEncoder,
     OrdinalEncoder,
@@ -21,7 +21,7 @@ from sklearn.preprocessing import (
 )
 
 # Local
-from utils import plot_housing_map, plot_scatter
+from utils import plot_housing_map, plot_scatter, StandardScalerClone
 
 
 # Resolve repo paths
@@ -221,13 +221,13 @@ def main() -> None:
     age_similarity_35 = rbf_kernel(housing[["housing_median_age"]], [[15]], gamma=0.1)
 
     # Scatter: age vs similarity
-    # plt.figure(figsize=(8, 5))
-    # plt.scatter(housing["housing_median_age"], age_similarity_35, alpha=0.1)
-    # plt.xlabel("Housing Median Age")
-    # plt.ylabel("Similarity to Age=35")
-    # plt.title("RBF Similarity to Age=35")
-    # plt.grid(True, linestyle=":")
-    # plt.show()
+    plt.figure(figsize=(8, 5))
+    plt.scatter(housing["housing_median_age"], age_similarity_35, alpha=0.1)
+    plt.xlabel("Housing Median Age")
+    plt.ylabel("Similarity to Age=35")
+    plt.title("RBF Similarity to Age=35")
+    plt.grid(True, linestyle=":")
+    plt.show()
 
     # Scale target values (labels) before training
     target_scaler = StandardScaler()
@@ -252,6 +252,24 @@ def main() -> None:
     model.fit(housing[["median_income"]], housing_labels)
     predictions = model.predict(some_new_data)
     print(predictions)
+
+    # Custom log transformer (with inverse = exp)
+    log_transformer = FunctionTransformer(np.log, inverse_func=np.exp)
+    log_population = log_transformer.transform(housing[["population"]])
+
+    # Custom RBF similarity transformer
+    # rbf_kernel(X, Y) needs both arguments; we fix Y=[[15.]], gamma=0.1 via kw_args
+    rbf_transformer = FunctionTransformer(
+        rbf_kernel, kw_args=dict(Y=[[15.0]], gamma=0.1)
+    )
+    age_similarity_35 = rbf_transformer.transform(housing[["housing_median_age"]])
+
+    # Fit and apply custom StandardScalerClone on median_income
+    scaler = StandardScalerClone(with_mean=True)
+    scaler.fit(housing[["median_income"]])
+    scaled = scaler.transform(housing[["median_income"]])
+
+    print(scaled[:5])  # show first 5 scaled values
 
 
 if __name__ == "__main__":
