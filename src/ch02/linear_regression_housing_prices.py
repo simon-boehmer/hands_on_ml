@@ -7,7 +7,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from pandas.plotting import scatter_matrix
+from sklearn.base import TransformerMixin
+from sklearn.compose import TransformedTargetRegressor
 from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LinearRegression
 from sklearn.metrics.pairwise import rbf_kernel
 from sklearn.model_selection import StratifiedShuffleSplit, train_test_split
 from sklearn.preprocessing import (
@@ -218,13 +221,37 @@ def main() -> None:
     age_similarity_35 = rbf_kernel(housing[["housing_median_age"]], [[15]], gamma=0.1)
 
     # Scatter: age vs similarity
-    plt.figure(figsize=(8, 5))
-    plt.scatter(housing["housing_median_age"], age_similarity_35, alpha=0.5)
-    plt.xlabel("Housing Median Age")
-    plt.ylabel("Similarity to Age=35")
-    plt.title("RBF Similarity to Age=35")
-    plt.grid(True, linestyle=":")
-    plt.show()
+    # plt.figure(figsize=(8, 5))
+    # plt.scatter(housing["housing_median_age"], age_similarity_35, alpha=0.1)
+    # plt.xlabel("Housing Median Age")
+    # plt.ylabel("Similarity to Age=35")
+    # plt.title("RBF Similarity to Age=35")
+    # plt.grid(True, linestyle=":")
+    # plt.show()
+
+    # Scale target values (labels) before training
+    target_scaler = StandardScaler()
+    scaled_labels = target_scaler.fit_transform(housing_labels.to_frame())
+
+    model = LinearRegression()
+    model.fit(housing[["median_income"]], scaled_labels)
+
+    # Take some new data (first 5 rows of median_income)
+    some_new_data = housing[["median_income"]].iloc[:5]
+
+    # Predict in scaled target space
+    scaled_predictions = model.predict(some_new_data)
+    print(scaled_predictions)
+
+    # Inverse-transform predictions back to original scale
+    predictions = target_scaler.inverse_transform(scaled_predictions)
+    print(predictions)
+
+    # Alternative: let sklearn handle target scaling internally
+    model = TransformedTargetRegressor(LinearRegression(), transformer=StandardScaler())
+    model.fit(housing[["median_income"]], housing_labels)
+    predictions = model.predict(some_new_data)
+    print(predictions)
 
 
 if __name__ == "__main__":
