@@ -7,11 +7,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from pandas.plotting import scatter_matrix
-from sklearn.compose import TransformedTargetRegressor
+from sklearn.compose import (
+    TransformedTargetRegressor,
+    ColumnTransformer,
+    make_column_transformer,
+    make_column_selector,
+)
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics.pairwise import rbf_kernel
 from sklearn.model_selection import StratifiedShuffleSplit, train_test_split
+from sklearn.pipeline import make_pipeline, Pipeline
 from sklearn.preprocessing import (
     FunctionTransformer,
     MinMaxScaler,
@@ -21,7 +27,7 @@ from sklearn.preprocessing import (
 )
 
 # Local
-from utils import plot_housing_map, plot_scatter, StandardScalerClone
+from utils import plot_housing_map, plot_scatter, StandardScalerClone, ClusterSimilarity
 
 
 # Resolve repo paths
@@ -270,6 +276,138 @@ def main() -> None:
     scaled = scaler.transform(housing[["median_income"]])
 
     print(scaled[:5])  # show first 5 scaled values
+
+    # Numerical pipeline: impute missing values, then standardize
+    num_pipeline = Pipeline(
+        [("impute", SimpleImputer(strategy="median")), ("scaler", StandardScaler())]
+    )
+
+    # Equivalent shorthand using make_pipeline (auto-names steps)
+    num_pipeline = make_pipeline(SimpleImputer(strategy="median"), StandardScaler())
+
+    # Fit + transform numerical features
+    housing_num_prepared = num_pipeline.fit_transform(housing_num)
+    print(housing_num_prepared[:2].round(2))
+
+    # Back to DataFrame with feature names + original index
+    df_housing_num_prepared = pd.DataFrame(
+        housing_num_prepared,
+        columns=num_pipeline.get_feature_names_out(),
+        index=housing_num.index,
+    )
+    print(df_housing_num_prepared.head(2).round(2))
+
+    # Define numerical and categorical attribute lists
+    num_attribs = [
+        "longitude",
+        "latitude",
+        "housing_median_age",
+        "total_rooms",
+        "total_bedrooms",
+        "population",
+        "households",
+        "median_income",
+    ]
+    cat_attribs = ["ocean_proximity"]
+
+    # Categorical pipeline: impute missing with most_frequent, then one-hot encode
+    cat_pipeline = make_pipeline(
+        SimpleImputer(strategy="most_frequent"), OneHotEncoder(handle_unknown="ignore")
+    )
+
+    # Combine numerical + categorical pipelines
+    preprocessing = ColumnTransformer(
+        [("num", num_pipeline, num_attribs), ("cat", cat_pipeline, cat_attribs)]
+    )
+
+    # Easier approach: select columns by dtype instead of listing names
+    preprocessing = make_column_transformer(
+        (num_pipeline, make_column_selector(dtype_include=np.number)),
+        (cat_pipeline, make_column_selector(dtype_include=object)),
+    )
+
+    # Fit + transform full dataset (numerical + categorical)
+    housing_prepared = preprocessing.fit_transform(housing)
+
+    # Get feature names from the preprocessing pipeline
+    feature_names = preprocessing.get_feature_names_out()
+
+    # Wrap transformed data back into DataFrame
+    df_housing_prepared = pd.DataFrame(
+        housing_prepared,
+        columns=feature_names,
+        index=housing.index,  # keep original row index
+    )
+
+    print(df_housing_prepared.head())
+
+    # Full preprocessing pipeline
+    # Includes: engineered ratios, log transforms, cluster-based geo features,
+    # categorical encoding, and default numeric impute+scale for leftovers
+
+    # Custom transformer: compute ratio of two columns
+    def column_ratio(X):
+        return X[:, [0]] / X[:, [1]]
+
+    # Provide a feature name for the ratio output (sklearn requires this)
+    def ratio_name(function_transformer, feature_names_in):
+        return ["ratio"]
+
+    # Pipeline to create ratio features: impute missing → compute ratio → scale
+    def ratio_pipeline():
+        return make_pipeline(
+            SimpleImputer(strategy="median"),
+            FunctionTransformer(column_ratio, feature_names_out=ratio_name),
+            StandardScaler(),
+        )
+
+    # Pipeline for log-transformed features: impute missing → log-transform → scale
+    log_pipeline = make_pipeline(
+        SimpleImputer(strategy="median"),
+        FunctionTransformer(np.log, feature_names_out="one-to-one"),
+        StandardScaler(),
+    )
+
+    # Geo-feature transformer: replace lat/long with cluster similarities
+    cluster_simil = ClusterSimilarity(n_clusters=10, gamma=1.0, random_state=42)
+
+    # Default pipeline for any remaining numeric columns:
+    # impute missing values with median, then standard scale
+    default_num_pipeline = make_pipeline(
+        SimpleImputer(strategy="median"), StandardScaler()
+    )
+
+    # Combine all transformations into one ColumnTransformer
+    preprocessing = ColumnTransformer(
+        [
+            # Ratios: new features engineered from column pairs
+            ("bedrooms", ratio_pipeline(), ["total_bedrooms", "total_rooms"]),
+            ("rooms_per_house", ratio_pipeline(), ["total_rooms", "households"]),
+            ("people_per_house", ratio_pipeline(), ["population", "households"]),
+            # Log transformations: applied to skewed numeric columns
+            (
+                "log",
+                log_pipeline,
+                [
+                    "total_bedrooms",
+                    "total_rooms",
+                    "population",
+                    "households",
+                    "median_income",
+                ],
+            ),
+            # Geographic features: cluster similarity from latitude/longitude
+            ("geo", cluster_simil, ["latitude", "longitude"]),
+            # Categorical pipeline: impute missing with most_frequent, then one-hot encode
+            ("cat", cat_pipeline, make_column_selector(dtype_include=object)),
+        ],
+        # Any other numeric column not listed (e.g. housing_median_age) → default pipeline
+        remainder=default_num_pipeline,
+    )
+
+    housing_prepared = preprocessing.fit_transform(housing)
+    print(housing_prepared.shape)
+    print(preprocessing.get_feature_names_out())
 
 
 if __name__ == "__main__":
