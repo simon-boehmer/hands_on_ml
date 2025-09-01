@@ -34,7 +34,13 @@ from sklearn.preprocessing import (
 from sklearn.tree import DecisionTreeRegressor
 
 # Local
-from utils import plot_housing_map, plot_scatter, StandardScalerClone, ClusterSimilarity
+from utils import (
+    plot_housing_map,
+    plot_scatter,
+    StandardScalerClone,
+    ClusterSimilarity,
+    plot_regression_fit,
+)
 
 
 # Resolve repo paths
@@ -130,31 +136,29 @@ def scale_std(df: pd.DataFrame) -> StandardScaler:
     return scaler
 
 
-def evaluate_model(pipeline, X, y, name, print_samples=False, compute_cv=False):
+def evaluate_model(pipeline, X, y, name, compute_cv=False):
+    """
+    Fits the model, computes RMSE on training data,
+    plots predictions vs. true values, and optionally computes cross-validation RMSE.
+    """
     pipeline.fit(X, y)
     predictions = pipeline.predict(X)
 
     rmse = root_mean_squared_error(y, predictions)
     print(f"{name} RMSE on training data: {rmse}")
 
-    if print_samples:
-        print(predictions[:5].round(-2))  # rounded for readability
-        print(y.iloc[:5])
-
-    # Scatter plot: predicted vs. true values
-    plt.figure(figsize=(8, 6))
-    plt.scatter(y, predictions, alpha=0.5)
-    plt.plot(
-        [y.min(), y.max()],
-        [y.min(), y.max()],
-        "r--",
-        linewidth=2,
-    )  # dashed diagonal = perfect predictions
-    plt.xlabel("True Values")
-    plt.ylabel("Predicted Values")
-    plt.title(f"{name}: Predictions vs. True Values")
-    plt.grid(True, linestyle=":")
-    plt.show()
+    # Use viz function for plotting
+    plot_regression_fit(
+        X=y,
+        y=predictions,
+        X_line=[y.min(), y.max()],
+        y_pred=[y.min(), y.max()],
+        x_label="True Values",
+        y_label="Predicted Values",
+        title=f"{name}: Predictions vs. True Values",
+        format_x_thousands=True,
+        show=True,
+    )
 
     if compute_cv:
         cv_rmses = -cross_val_score(

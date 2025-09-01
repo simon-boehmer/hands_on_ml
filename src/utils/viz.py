@@ -27,7 +27,9 @@ def plot_regression_fit(
 
     # Scatter data points and regression line
     ax.scatter(X, y, s=60, alpha=0.85, label="Data")
-    ax.plot(X_line, y_pred, linewidth=2, label="Linear fit")
+    ax.plot(
+        X_line, y_pred, color="red", linestyle="--", linewidth=2, label="Linear fit"
+    )
 
     # Axis labels and title
     ax.set_xlabel(x_label)
