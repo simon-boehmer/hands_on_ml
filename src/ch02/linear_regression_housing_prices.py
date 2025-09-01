@@ -13,10 +13,16 @@ from sklearn.compose import (
     make_column_transformer,
     make_column_selector,
 )
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LinearRegression
+from sklearn.metrics import root_mean_squared_error
 from sklearn.metrics.pairwise import rbf_kernel
-from sklearn.model_selection import StratifiedShuffleSplit, train_test_split
+from sklearn.model_selection import (
+    StratifiedShuffleSplit,
+    train_test_split,
+    cross_val_score,
+)
 from sklearn.pipeline import make_pipeline, Pipeline
 from sklearn.preprocessing import (
     FunctionTransformer,
@@ -25,6 +31,7 @@ from sklearn.preprocessing import (
     OrdinalEncoder,
     StandardScaler,
 )
+from sklearn.tree import DecisionTreeRegressor
 
 # Local
 from utils import plot_housing_map, plot_scatter, StandardScalerClone, ClusterSimilarity
@@ -121,6 +128,43 @@ def scale_std(df: pd.DataFrame) -> StandardScaler:
     scaler = StandardScaler()
     scaler.fit(df)
     return scaler
+
+
+def evaluate_model(pipeline, X, y, name, print_samples=False, compute_cv=False):
+    pipeline.fit(X, y)
+    predictions = pipeline.predict(X)
+
+    rmse = root_mean_squared_error(y, predictions)
+    print(f"{name} RMSE on training data: {rmse}")
+
+    if print_samples:
+        print(predictions[:5].round(-2))  # rounded for readability
+        print(y.iloc[:5])
+
+    # Scatter plot: predicted vs. true values
+    plt.figure(figsize=(8, 6))
+    plt.scatter(y, predictions, alpha=0.5)
+    plt.plot(
+        [y.min(), y.max()],
+        [y.min(), y.max()],
+        "r--",
+        linewidth=2,
+    )  # dashed diagonal = perfect predictions
+    plt.xlabel("True Values")
+    plt.ylabel("Predicted Values")
+    plt.title(f"{name}: Predictions vs. True Values")
+    plt.grid(True, linestyle=":")
+    plt.show()
+
+    if compute_cv:
+        cv_rmses = -cross_val_score(
+            pipeline,
+            X,
+            y,
+            scoring="neg_root_mean_squared_error",
+            cv=10,
+        )
+        print(f"{name} Cross-Validation RMSEs:\n{pd.Series(cv_rmses).describe()}")
 
 
 def main() -> None:
@@ -227,13 +271,13 @@ def main() -> None:
     age_similarity_35 = rbf_kernel(housing[["housing_median_age"]], [[15]], gamma=0.1)
 
     # Scatter: age vs similarity
-    plt.figure(figsize=(8, 5))
-    plt.scatter(housing["housing_median_age"], age_similarity_35, alpha=0.1)
-    plt.xlabel("Housing Median Age")
-    plt.ylabel("Similarity to Age=35")
-    plt.title("RBF Similarity to Age=35")
-    plt.grid(True, linestyle=":")
-    plt.show()
+    # plt.figure(figsize=(8, 5))
+    # plt.scatter(housing["housing_median_age"], age_similarity_35, alpha=0.1)
+    # plt.xlabel("Housing Median Age")
+    # plt.ylabel("Similarity to Age=35")
+    # plt.title("RBF Similarity to Age=35")
+    # plt.grid(True, linestyle=":")
+    # plt.show()
 
     # Scale target values (labels) before training
     target_scaler = StandardScaler()
@@ -408,6 +452,22 @@ def main() -> None:
     housing_prepared = preprocessing.fit_transform(housing)
     print(housing_prepared.shape)
     print(preprocessing.get_feature_names_out())
+
+    # Linear Regression
+    lin_reg = make_pipeline(preprocessing, LinearRegression())
+    evaluate_model(
+        lin_reg, housing, housing_labels, "Linear Regression", compute_cv=True
+    )
+
+    # Decision Tree
+    tree_reg = make_pipeline(preprocessing, DecisionTreeRegressor())
+    evaluate_model(tree_reg, housing, housing_labels, "Decision Tree", compute_cv=True)
+
+    # Random Forest
+    forest_reg = make_pipeline(preprocessing, RandomForestRegressor())
+    evaluate_model(
+        forest_reg, housing, housing_labels, "Random Forest", compute_cv=True
+    )
 
 
 if __name__ == "__main__":
