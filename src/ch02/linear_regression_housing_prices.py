@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from pandas.plotting import scatter_matrix
+from scipy.stats import randint
 from sklearn.compose import (
     TransformedTargetRegressor,
     ColumnTransformer,
@@ -22,6 +23,8 @@ from sklearn.model_selection import (
     StratifiedShuffleSplit,
     train_test_split,
     cross_val_score,
+    GridSearchCV,
+    RandomizedSearchCV,
 )
 from sklearn.pipeline import make_pipeline, Pipeline
 from sklearn.preprocessing import (
@@ -472,6 +475,100 @@ def main() -> None:
     evaluate_model(
         forest_reg, housing, housing_labels, "Random Forest", compute_cv=True
     )
+
+    # Grid Search CV for Random Forest hyperparameters
+    print("START GRID SEARCH CV")  # Start indicator
+
+    # Full pipeline: preprocessing + Random Forest
+    full_pipeline = Pipeline(
+        [
+            ("preprocessing", preprocessing),
+            ("random_forest", RandomForestRegressor(random_state=42)),
+        ]
+    )
+
+    # Parameter grid: geo clusters and max features
+    param_grid = [
+        {
+            "preprocessing__geo__n_clusters": [5, 8, 10],
+            "random_forest__max_features": [4, 6, 8],
+        },
+        {
+            "preprocessing__geo__n_clusters": [10, 15],
+            "random_forest__max_features": [6, 8, 10],
+        },
+    ]
+
+    # GridSearchCV: 3-fold CV, neg RMSE scoring
+    grid_search = GridSearchCV(
+        full_pipeline, param_grid, cv=3, scoring="neg_root_mean_squared_error"
+    )
+
+    # Fit to data
+    grid_search.fit(housing, housing_labels)
+
+    # Best params
+    print(grid_search.best_params_)
+
+    # CV results DataFrame, sorted by mean test score (descending)
+    cv_res = pd.DataFrame(grid_search.cv_results_)
+    cv_res.sort_values("mean_test_score", ascending=False, inplace=True)
+
+    # Top results
+    print(cv_res.head())
+
+    # Random Search CV for Random Forest hyperparameters
+    print("START RANDOM SEARCH CV")  # Start indicator
+
+    # Parameter distributions: geo clusters and max features
+    param_distribution = {
+        "preprocessing__geo__n_clusters": randint(low=3, high=50),
+        "random_forest__max_features": randint(low=2, high=20),
+    }
+
+    # RandomizedSearchCV: 10 iterations, 3-fold CV, neg RMSE scoring
+    rnd_search = RandomizedSearchCV(
+        full_pipeline,
+        param_distribution,
+        n_iter=10,
+        cv=3,
+        scoring="neg_root_mean_squared_error",
+        random_state=42,
+    )
+
+    # Fit to data
+    rnd_search.fit(housing, housing_labels)
+
+    # Best model from search
+    final_model = rnd_search.best_estimator_
+
+    # Feature importances from Random Forest
+    feature_importances = final_model["random_forest"].feature_importances_
+    print(feature_importances.round(2))
+
+    # Sorted importances with feature names
+    print(
+        sorted(
+            zip(
+                feature_importances,
+                final_model["preprocessing"].get_feature_names_out(),
+            ),
+            reverse=True,
+        )
+    )
+
+    # Evaluate final model on test set
+
+    # Prepare test features and labels
+    X_test = test.drop("median_house_value", axis=1)
+    y_test = test["median_house_value"].copy()
+
+    # Generate predictions
+    final_predictions = final_model.predict(X_test)
+
+    # Compute RMSE on test data
+    final_rmse = root_mean_squared_error(y_test, final_predictions)
+    print(final_rmse)
 
 
 if __name__ == "__main__":
